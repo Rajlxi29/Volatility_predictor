@@ -1,0 +1,5 @@
+scikit-learn
+tensorflow
+numpy
+lightgbm
+langchain_google_genai
