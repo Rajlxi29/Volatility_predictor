@@ -4,3 +4,6 @@ numpy
 lightgbm
 langchain_google_genai
 pandas
+huggingface_hub
+python-dotenv
+transformers
