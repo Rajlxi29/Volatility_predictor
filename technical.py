@@ -1,18 +1,22 @@
-import numpy as np
+from config.settings import OPENAI_API, OPENAI_BASE
+from langchain_openai import ChatOpenAI
+from pydantic import BaseModel, Field
+from langchain_core.messages import SystemMessage, HumanMessage
+from typing import Literal
 import pandas as pd
 import yfinance as yf
-from langchain_openai import ChatOpenAI
-from dotenv import load_dotenv
-import os
+import json
 
-load_dotenv()
 
-model = ChatOpenAI(
-    model = "openrouter/free",
-    openai_api_key = os.getenv("OPEANAI_API_KEY"),
-    openai_api_base = "https://openrouter.ai/api/v1"
-)
 
+class summary(BaseModel):
+    Trend : str = Field(description="value with meaning in one line")
+    RSI : str = Field(description="value with meaning in one line")
+    MACD : str = Field(description="value with meaning in one line")
+    Volume : str = Field(description="value with meaning in one line")
+    Bollinger : str = Field(description="value with meaning in one line")
+    Summary: str = Field(description="summary after reveiewing the values in 50 words")
+    Position: Literal["Hold", "Sell", "Buy"]
 
 def datacollection(ticker):
 
@@ -26,8 +30,8 @@ def datacollection(ticker):
     result.columns = result.columns.get_level_values(0)
     result = result.reset_index()
     result["Ticker"] = ticker
-    df = result
-    return df
+
+    return result
 
 def calculate_technical_indicators(df):
 
@@ -48,8 +52,8 @@ def calculate_technical_indicators(df):
     ema12 = df["Close"].ewm(span=12, adjust=False).mean()
     ema26 = df["Close"].ewm(span=26, adjust=False).mean()
 
-    df["MCAD"]=ema12 - ema26
-    df["MCAD_Signal"] = df["MCAD"].ewm(span=9, adjust=False).mean()
+    df["MACD"]=ema12 - ema26
+    df["MACD_Signal"] = df["MACD"].ewm(span=9, adjust=False).mean()
 
     high_low = df["High"] - df["Low"]
     high_close = abs(df["High"] - df["Close"].shift())
@@ -73,25 +77,6 @@ def calculate_technical_indicators(df):
 
     return df
 
-def solve(technical):
-    query = f"""
-        generate the technical summary of the {technical} data that is provided to you do it
-        by focusing on the part if It is good to buy, sell or hold the stock the format of the output should be like this
-        Summary of the signals
-
-        Trend : 
-        RSI : 
-        MACD : 
-        Volume : 
-        Bollinger : 
-
-        Complete situation summary and approximat verdict on the position
-        BUY, HOLD, SELL
-    """
-
-    response = model.invoke(query)
-    return response.content
-
 def technical_agent(df):
 
     df = calculate_technical_indicators(df)
@@ -101,10 +86,10 @@ def technical_agent(df):
     signals = {}
     # signals["Price"] = latest["Price"]
     signals["RSI"] = latest["RSI"]
-    signals["MCAD"] = latest["MCAD"]
-    signals["MCAD_signals"] = latest["MCAD_Signal"]
+    signals["MACD"] = latest["MACD"]
+    signals["MACD_signals"] = latest["MACD_Signal"]
     signals["ATR"] = latest["ATR"]
-    signals["Volumne_Ratio"] = latest["Volume_Ratio"]
+    signals["Volume_Ratio"] = latest["Volume_Ratio"]
 
     calculations = {}
 
@@ -128,10 +113,10 @@ def technical_agent(df):
         calculations["RSI"] = "neutral"
 
     # MACD
-    if latest["MCAD"] > latest["MCAD_Signal"]:
-        calculations["MCAD"] = "bullish"
+    if latest["MACD"] > latest["MACD_Signal"]:
+        calculations["MACD"] = "bullish"
     else:
-        calculations["MCAD"] = "bearish"
+        calculations["MACD"] = "bearish"
 
     # Volume
     if latest["Volume_Ratio"] > 1.5:
@@ -151,11 +136,68 @@ def technical_agent(df):
 
     signals["calculation"] = calculations
 
-    return solve(signals)
+    return signals
+
+def solve(signals) -> str:
+    # query = f"""
+    #     generate the technical summary of the {signals} data that is provided to you do it
+    #     by focusing on the part if It is good to buy, sell or hold the stock the format of the output should be like this
+    #     Summary of the signals
+
+    #     Trend : 
+    #     RSI : 
+    #     MACD : 
+    #     Volume : 
+    #     Bollinger : 
+
+    #     Complete situation summary and approximat verdict on the position
+    #     BUY, HOLD, SELL
+    # """
+
+    sys = SystemMessage(content="""You are an expert stock market analyst.
+                                Analyze the provided technical signals.
+                                Return the result strictly according to the provided structured output schema.
+                                Do not return Markdown.
+                                Do not add headings or explanations outside the schema.""")
+    hum = HumanMessage(content=json.dumps(signals, indent=2))
+    query = [sys, hum]
+
+    model = ChatOpenAI(
+        model = "openrouter/free",
+        openai_api_key = OPENAI_API,
+        openai_api_base = OPENAI_BASE,
+        timeout=30,
+        max_retries=2
+    )
+    modell = model.with_structured_output(summary)
+    try:
+        response = modell.invoke(query)
+        return response
+
+    except ConnectionError as e:
+        print(f"The model is not connected properly : {e}")
+        return ""
+
+    except TimeoutError as e:
+        print(f"Timeout for retries: {e}")
+        return ""
+
+    except Exception as e:
+        print(f"Model failed to produce output: {e}")
+        return None
+
+
+def technical_init(ticker: str):
+    print("getting the dataset...")
+    df = datacollection(ticker)
+    print("getting the signals...")
+    signal = technical_agent(df)
+    print("Done\n")
+    print("getting summary...")
+    summary = solve(signal)
+    return summary
 
 if __name__ == '__main__':
-
-    ticker = input("Enter the ticker ")
-    df = datacollection(ticker)
-    signal = technical_agent(df).split(",")
+    ticker = "RELAINCE.NS"
+    signal = technical_init(ticker)
     print(signal)
