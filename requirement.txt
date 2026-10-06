@@ -7,3 +7,5 @@ pandas
 huggingface_hub
 python-dotenv
 transformers
+langgraph
+trafilatura
