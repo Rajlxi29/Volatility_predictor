@@ -65,7 +65,7 @@ def news_extracter(name: str) -> str:
 
         news_results = news.get("news_result", [])
 
-        content = ""
+        content = []
 
         for news in news_results:
             link = news.get("links", [])
@@ -90,49 +90,56 @@ def news_extracter(name: str) -> str:
                 strip=True
             )
 
-            content += "\n" + context 
+            content.append(content)
 
         return content
     
     except ValueError as e:
         print(f"Invalid value format {e}")
-        return ""
+        return []
 
     except Exception as e:
         print(f"news_extraction failed {e}")
-        return ""
+        return []
 
-def senitment_analyser(content: str) -> str:
+def senitment_analyser(content: list) -> str:
     try:
         Client = InferenceClient(
             provider="hf-inference",
             api_key = HF_TOKEN
         )
 
-        if not content or not content.strip():
+        if not content:
             raise ValueError("The value should be a string")
+
+        positive = 0
+        negative = 0
+        neutral = 0
         
-        sentiment = Client.text_classification(
-            content,
-            model="ProsusAI/finbert"
-        )
+        for news in content:
+            sentiment = Client.text_classification(
+                news,
+                model="ProsusAI/finbert"
+            )
 
-        context = {}
+            for item in sentiment:
+                if item["label"] == "positive":
+                    positive += item["score"]
+                elif item["label"] == "negative":
+                    negative += item["score"]
+                else:
+                    neutral += item["score"]
 
-        for emotion in sentiment:
-            context.update(emotion)
+        total = positive + negative + neutral
+        positive /= total
+        negative /= total
+        neutral /= total
 
-        positive = context.get("positive", 0)
-        negative = context.get("negative", 0)
-
-        res = positive - negative
-
-        if res > 0.15:
+        if positive > negative and positive > neutral:
             return "positive"
-        elif res < -0.15:
+        if negative > neutral:
             return "negative"
-        else:
-            return "nuetral"
+        return "neutral"
 
     except ValueError as e:
         print(f"Invalid Input: {e}") 
@@ -142,11 +149,17 @@ def senitment_analyser(content: str) -> str:
         print(f"Sentiment Aanlyser failed {e}")
         return "neutral"
 
+def sentiment_init(comapny: str) -> str:
+
+    print(f"Searching news for {company}... \n")
+    news = news_extracter(company)
+    print(f"Summarising the news articles \n")
+    summary = summarise(news)
+    print(f"Finding the final sentiment \n")
+    sentiment = senitment_analyser(summary) 
+    return sentiment
 
 if __name__ == "__main__":
     company = "RELAINCE"
-    news = news_extracter(company)
-    summary = summarise(news)
-    sentiment = senitment_analyser(summary) 
+    sentiment = sentiment_init(company)
     print(sentiment)
-
