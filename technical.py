@@ -7,9 +7,8 @@ import pandas as pd
 import yfinance as yf
 import json
 
-
-
 class summary(BaseModel):
+    Price: float
     Trend : str = Field(description="value with meaning in one line")
     RSI : str = Field(description="value with meaning in one line")
     MACD : str = Field(description="value with meaning in one line")
@@ -84,7 +83,7 @@ def technical_agent(df):
     latest = df.iloc[-1]
 
     signals = {}
-    # signals["Price"] = latest["Price"]
+    signals["Price"] = latest["Close"]
     signals["RSI"] = latest["RSI"]
     signals["MACD"] = latest["MACD"]
     signals["MACD_signals"] = latest["MACD_Signal"]
@@ -139,26 +138,12 @@ def technical_agent(df):
     return signals
 
 def solve(signals) -> str:
-    # query = f"""
-    #     generate the technical summary of the {signals} data that is provided to you do it
-    #     by focusing on the part if It is good to buy, sell or hold the stock the format of the output should be like this
-    #     Summary of the signals
-
-    #     Trend : 
-    #     RSI : 
-    #     MACD : 
-    #     Volume : 
-    #     Bollinger : 
-
-    #     Complete situation summary and approximat verdict on the position
-    #     BUY, HOLD, SELL
-    # """
-
     sys = SystemMessage(content="""You are an expert stock market analyst.
                                 Analyze the provided technical signals.
                                 Return the result strictly according to the provided structured output schema.
                                 Do not return Markdown.
-                                Do not add headings or explanations outside the schema.""")
+                                Do not add headings or explanations outside the schema only.
+                                Only give the answer in the given format.""")
     hum = HumanMessage(content=json.dumps(signals, indent=2))
     query = [sys, hum]
 
@@ -169,7 +154,10 @@ def solve(signals) -> str:
         timeout=30,
         max_retries=2
     )
-    modell = model.with_structured_output(summary)
+    modell = model.with_structured_output(
+        summary,
+        method="function_calling"
+    )
     try:
         response = modell.invoke(query)
         return response
@@ -186,7 +174,6 @@ def solve(signals) -> str:
         print(f"Model failed to produce output: {e}")
         return None
 
-
 def technical_init(ticker: str):
     print("getting the dataset...")
     df = datacollection(ticker)
@@ -200,4 +187,4 @@ def technical_init(ticker: str):
 if __name__ == '__main__':
     ticker = "RELAINCE.NS"
     signal = technical_init(ticker)
-    print(signal)
+    print(type(signal))

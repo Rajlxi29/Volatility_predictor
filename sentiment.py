@@ -1,10 +1,17 @@
 from huggingface_hub import InferenceClient
 from config.settings import SERAPI, OPENAI_API, OPENAI_BASE, HF_TOKEN
 from langchain_openai import ChatOpenAI
-from bs4 import BeautifulSoup
+from pydantic import BaseModel, Field
+from typing import Literal
+from transformers import pipeline
 import trafilatura
-import requests
 import serpapi
+
+class Sentiment_result(BaseModel):
+    positive: int
+    negativ: int
+    neutral: int
+    overall: str
 
 def summarise(text: str) -> str:
     prompt = f"""
@@ -44,13 +51,14 @@ def summarise(text: str) -> str:
 
     except TimeoutError as e:
         print(f"Response Timeout error from the. Try Again")
+        return ""
 
     except Exception as e:
         print(f"The model is raising an issue: {e}")
         return ""
 
 
-def news_extracter(name: str) -> str:
+def news_extracter(name: str) -> list:
 
     try:
         sclient = serpapi.Client(api_key = SERAPI)
@@ -63,34 +71,20 @@ def news_extracter(name: str) -> str:
             "num": 3
         })
 
-        news_results = news.get("news_result", [])
+        news_results = news.get("news_results", [])
 
         content = []
 
         for news in news_results:
-            link = news.get("links", [])
+            link = news.get("link", [])
 
             if not link:
                 continue
 
-            # download = trafilatura.fetch_url(link)
-            # context = trafilatura.extract(download)
+            download = trafilatura.fetch_url(link)
+            context = trafilatura.extract(download)
 
-            context = requests.get(
-                link,
-                timeout=10,
-                headers={ "User-Agent": "Mozilla/5.0" }
-            )
-
-            context.raise_for_status()
-
-            soup = BeautifulSoup(context, "html.parser")
-            soup.get_text(
-                separator=" ",
-                strip=True
-            )
-
-            content.append(content)
+            content.append(context)
 
         return content
     
@@ -102,12 +96,17 @@ def news_extracter(name: str) -> str:
         print(f"news_extraction failed {e}")
         return []
 
-def senitment_analyser(content: list) -> str:
+    except Exception as e:
+        print(f"Article failed to be extracted {e}")
+        return []
+
+def senitment_analyser(content: list):
     try:
         Client = InferenceClient(
             provider="hf-inference",
             api_key = HF_TOKEN
         )
+        pipe = pipeline("text-classification", model="9mark9/finbert-minilm-sentiment")
 
         if not content:
             raise ValueError("The value should be a string")
@@ -115,12 +114,13 @@ def senitment_analyser(content: list) -> str:
         positive = 0
         negative = 0
         neutral = 0
-        
-        for news in content:
-            sentiment = Client.text_classification(
-                news,
-                model="ProsusAI/finbert"
-            )
+
+        i = 0
+        for news in content[0:3]:
+            print(f"summarising news {i}")
+            i += 1
+            summary = summarise(news)
+            sentiment = pipe(summary)
 
             for item in sentiment:
                 if item["label"] == "positive":
@@ -135,29 +135,35 @@ def senitment_analyser(content: list) -> str:
         negative /= total
         neutral /= total
 
+        Sentiment_result.positive = positive
+        Sentiment_result.negative = negative
+        Sentiment_result.neutral = neutral
+
         if positive > negative and positive > neutral:
-            return "positive"
-        if negative > neutral:
-            return "negative"
-        return "neutral"
+            Sentiment_result.overall = "positive"
+        elif negative > neutral:
+            Sentiment_result.overall = "negative"
+        else:
+            Sentiment_result.overall = "neutral"
 
     except ValueError as e:
         print(f"Invalid Input: {e}") 
-        return "neutral"
+        return None
 
     except Exception as e:
         print(f"Sentiment Aanlyser failed {e}")
-        return "neutral"
+        return None
 
-def sentiment_init(comapny: str) -> str:
+def sentiment_init(company: str) -> str:
 
     print(f"Searching news for {company}... \n")
     news = news_extracter(company)
-    print(f"Summarising the news articles \n")
-    summary = summarise(news)
     print(f"Finding the final sentiment \n")
-    sentiment = senitment_analyser(summary) 
-    return sentiment
+    senitment_analyser(news) 
+    print(Sentiment_result.positive)
+    print(Sentiment_result.negative)
+    print(Sentiment_result.neutral)
+    print(Sentiment_result.overall)
 
 if __name__ == "__main__":
     company = "RELAINCE"
