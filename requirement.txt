@@ -9,3 +9,4 @@ python-dotenv
 transformers
 langgraph
 trafilatura
+torch

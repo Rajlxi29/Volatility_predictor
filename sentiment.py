@@ -2,7 +2,6 @@ from huggingface_hub import InferenceClient
 from config.settings import SERAPI, OPENAI_API, OPENAI_BASE, HF_TOKEN
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
-from typing import Literal
 from transformers import pipeline
 import trafilatura
 import serpapi
@@ -106,7 +105,8 @@ def senitment_analyser(content: list):
             provider="hf-inference",
             api_key = HF_TOKEN
         )
-        pipe = pipeline("text-classification", model="9mark9/finbert-minilm-sentiment")
+        pipe = pipeline("text-classification", 
+                        model="9mark9/finbert-minilm-sentiment")
 
         if not content:
             raise ValueError("The value should be a string")
@@ -115,7 +115,7 @@ def senitment_analyser(content: list):
         negative = 0
         neutral = 0
 
-        i = 0
+        i = 1
         for news in content[0:3]:
             print(f"summarising news {i}")
             i += 1
@@ -155,17 +155,12 @@ def senitment_analyser(content: list):
         return None
 
 def sentiment_init(company: str) -> str:
-
     print(f"Searching news for {company}... \n")
     news = news_extracter(company)
     print(f"Finding the final sentiment \n")
     senitment_analyser(news) 
-    print(Sentiment_result.positive)
-    print(Sentiment_result.negative)
-    print(Sentiment_result.neutral)
-    print(Sentiment_result.overall)
 
 if __name__ == "__main__":
     company = "RELAINCE"
-    sentiment = sentiment_init(company)
-    print(sentiment)
+    sentiment_init(company)
+    print(Sentiment_result.overall)

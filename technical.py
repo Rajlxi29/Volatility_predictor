@@ -18,9 +18,9 @@ class summary(BaseModel):
     Position: Literal["Hold", "Sell", "Buy"]
 
 def datacollection(ticker):
-
+    tick = ticker + ".NS"
     result = yf.download(
-        ticker[0],
+        tick,
         period="2y",
         interval="1d",
         auto_adjust=False
@@ -28,7 +28,7 @@ def datacollection(ticker):
 
     result.columns = result.columns.get_level_values(0)
     result = result.reset_index()
-    result["Ticker"] = ticker
+    result["Ticker"] = tick
 
     return result
 
@@ -185,6 +185,11 @@ def technical_init(ticker: str):
     return summary
 
 if __name__ == '__main__':
-    ticker = "RELAINCE.NS"
-    signal = technical_init(ticker)
-    print(type(signal))
+    ticker = "RELIANCE.NS"
+    result = yf.download(
+        ticker,
+        period='2y',
+        interval='1d',
+        auto_adjust=False
+    )
+    print(result)
