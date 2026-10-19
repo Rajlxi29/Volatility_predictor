@@ -18,7 +18,7 @@ class summary(BaseModel):
     Position: Literal["Hold", "Sell", "Buy"]
 
 def datacollection(ticker):
-    tick = ticker + ".NS"
+    tick = ticker
     result = yf.download(
         tick,
         period="2y",
