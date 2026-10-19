@@ -81,5 +81,6 @@ if __name__ == '__main__':
 
     ticker = "RELAINCE.NS"
     df = preprocessing(ticker)
+    print(df.head())
     prediction = model.predict(df)
     print(np.argmax(prediction))
