@@ -117,8 +117,8 @@ def monitor_investments():
     with get_connection() as conn:
         investments = conn.execute("""
             SELECT id, ticker, entry_price
-            FROM monitor_investments
-            WHERE status = 'active'
+            FROM investments
+            WHERE UPPER(decision) = 'BUY'
         """).fetchall()
 
     for investment_id, ticker, entry_price in investments:
@@ -138,14 +138,10 @@ def monitor_investments():
                 # Change since the previous monitoring snapshot
                 previous_change = None
                 if previous and previous[0] > 0:
-                    previous_change = (
-                        (current_price - previous[0]) / previous[0]
-                    ) * 100
+                    previous_change = ((current_price - previous[0]) / previous[0]) * 100
 
                 # Return relative to original entry price
-                entry_return = (
-                    (current_price - entry_price) / entry_price
-                ) * 100
+                entry_return = ((current_price - entry_price) / entry_price) * 100
 
                 # Flag for human review if price falls 30% from entry
                 review_required = int(
@@ -167,6 +163,8 @@ def monitor_investments():
                     entry_return,
                     review_required
                 ))
+
+                conn.commit()
 
             print(
                 f"{ticker}: Price={current_price:.2f}, "
@@ -219,10 +217,39 @@ def save_analysis(
 
 
 if __name__ == "__main__":
-    create_tables()
+    # create_tables()
 
     # Uncomment to register a BUY-approved investment:
     # add_investment("RELIANCE.NS")
 
     # Run the monitoring check:
-    monitor_investments()
+    # monitor_investments()
+
+    conn = sqlite3.connect("investments.db")
+    # '''conn.execute("""DROP TABLE price_history;""")
+    # conn.execute("""
+    #         CREATE TABLE price_history (
+    #             id INTEGER PRIMARY KEY AUTOINCREMENT,
+    #             investment_id INTEGER NOT NULL,
+    #             recorded_at TEXT NOT NULL,
+    #             price REAL NOT NULL,
+    #             change_since_previous REAL,
+    #             return_since_entry REAL,
+    #             review_required INTEGER DEFAULT 0,
+    #             FOREIGN KEY (investment_id) REFERENCES investments(id)
+    #         );
+    # """)'''
+
+    result = conn.execute(
+        """
+            select sql
+            from sqlite_master
+            where type = 'table'
+            and name = 'evalutation_history'
+        """
+    )
+
+    rows = result.fetchall()
+
+    for row in rows:
+        print(row)
