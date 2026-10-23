@@ -10,3 +10,4 @@ transformers
 langgraph
 trafilatura
 torch
+schedule

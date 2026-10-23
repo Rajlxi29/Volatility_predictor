@@ -58,7 +58,6 @@ def summarise(text: str) -> str:
 
 
 def news_extracter(name: str) -> list:
-
     try:
         sclient = serpapi.Client(api_key = SERAPI)
 
