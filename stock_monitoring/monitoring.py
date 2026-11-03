@@ -1,14 +1,14 @@
 import sqlite3
 import yfinance as yf
 from datetime import datetime, timezone
+from config.settings import DB_PATH
 
-DB_PATH = "investments.db"
 DROP_THRESHOLD = -30.0  # percentage
 
 # ---------- Database creation ----------
 
 def get_connection():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(str(DB_PATH))
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
@@ -115,13 +115,13 @@ def add_investment(ticker, entry_price=None):
 
 def monitor_investments():
     with get_connection() as conn:
-        investments = conn.execute("""
+        investment = conn.execute("""
             SELECT id, ticker, entry_price
             FROM investments
             WHERE UPPER(decision) = 'BUY'
         """).fetchall()
 
-    for investment_id, ticker, entry_price in investments:
+    for investment_id, ticker, entry_price in investment:
         try:
             current_price = get_latest_price(ticker)
             recorded_at = datetime.now(timezone.utc).isoformat()
@@ -225,7 +225,7 @@ if __name__ == "__main__":
     # Run the monitoring check:
     # monitor_investments()
 
-    conn = sqlite3.connect("investments.db")
+    conn = sqlite3.connect(DB_PATH)
     # '''conn.execute("""DROP TABLE price_history;""")
     # conn.execute("""
     #         CREATE TABLE price_history (
@@ -240,16 +240,17 @@ if __name__ == "__main__":
     #         );
     # """)'''
 
-    result = conn.execute(
-        """
-            select sql
-            from sqlite_master
-            where type = 'table'
-            and name = 'evalutation_history'
-        """
-    )
+    # result = conn.execute(
+    #     """
+    #         PRAGMA table_list
+    #     """
+    # )
 
-    rows = result.fetchall()
+    # rows = result.fetchall()
 
-    for row in rows:
-        print(row)
+    # for row in rows:
+    #     print(row)
+
+    monitor_investments()
+
+    #print(PROJECT_ROOT)
