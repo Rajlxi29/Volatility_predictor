@@ -1,3 +1,4 @@
+from pathlib import Path
 from config.settings import OPENAI_API, OPENAI_BASE
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
@@ -6,6 +7,7 @@ from typing import Literal
 import pandas as pd
 import yfinance as yf
 import json
+import os
 
 class summary(BaseModel):
     Price: float
@@ -33,7 +35,6 @@ def datacollection(ticker):
     return result
 
 def calculate_technical_indicators(df):
-
     df["MA_50"] = df["Close"].rolling(50).mean()
     df["MA_200"] = df["Close"].rolling(200).mean()
 
@@ -185,11 +186,5 @@ def technical_init(ticker: str):
     return summary
 
 if __name__ == '__main__':
-    ticker = "RELIANCE.NS"
-    result = yf.download(
-        ticker,
-        period='2y',
-        interval='1d',
-        auto_adjust=False
-    )
-    print(result)
+    response = technical_init("ETERNAL.NS")
+    print(response.Position)

@@ -47,7 +47,7 @@ def generate_sentiment(news):
     return label
 
 def evaluate_sentiment():
-    df = pd.read_csv("sentiments.csv")
+    df = pd.read_csv("dataset/sentiment/sentiments.csv")
     df = df.dropna(subset=["text", "true_label"]).copy()
 
     df["predicted"] = df["text"].apply(generate_sentiment)
@@ -63,5 +63,4 @@ def evaluate_sentiment():
 
 
 if __name__ == "__main__":
-    #datasetcreation()
     evaluate_sentiment()
